@@ -2,9 +2,9 @@ local Library = {}
 
 function Library.new(config)
 config = config or {}
-local UNLOAD_KEY = (config.Name or "VOIDUI") .. "_Unload"
+local UNLOAD_KEY = (config.Name or "ZeroHubUI") .. "_Unload"
 
--- VOID UI Library — ไลบรารี UI สำหรับ loadstring
+-- ZeroHub UI Library — ไลบรารี UI สำหรับ loadstring
 -- ใช้: local Lib = loadstring(game:HttpGet(URL))(); local UI = Lib.new({Title = "..."})
 -- ปรับปรุง: ระบบคอมโพเนนต์ (Toggle/Slider/Dropdown/Button), ค้นหา, แจ้งเตือน, แคชหน้า,
 --          ลากแยกจากคลิก, ล้าง connection ตอนปิด, ปรับขนาดตามหน้าจอ
@@ -31,18 +31,45 @@ end
 ---------------------------------------------------------------------
 -- THEME / HELPERS
 ---------------------------------------------------------------------
-local THEME = {
-    panel      = Color3.fromRGB(18, 19, 24),
-    panelSoft  = Color3.fromRGB(25, 26, 32),
-    card       = Color3.fromRGB(31, 32, 40),
-    accent     = Color3.fromRGB(105, 155, 255),
-    accentSoft = Color3.fromRGB(55, 78, 125),
-    white      = Color3.fromRGB(245, 247, 255),
-    muted      = Color3.fromRGB(155, 160, 175),
-    border     = Color3.fromRGB(90, 94, 110),
-    off        = Color3.fromRGB(57, 59, 70),
-    black      = Color3.fromRGB(0, 0, 0),
+local function hexc(h) return Color3.fromHex(h) end
+
+-- โทนสีสำเร็จรูป (ได้แรงบันดาลใจจาก BASED Hub) + สีหลัก 8 แบบ
+local SCHEMES = {
+    graphite  = {base = hexc("0B0B0F"), ink = hexc("F5F4EF"), sub = hexc("A9A8B4")},
+    midnight  = {base = hexc("000000"), ink = hexc("F5F4EF"), sub = hexc("9E9DA9")},
+    porcelain = {base = hexc("F3F2EE"), ink = hexc("121216"), sub = hexc("56555F")},
 }
+local ACCENTS = {
+    {name = "ม่วง",    color = hexc("8E7DFF")},
+    {name = "ฟ้า",     color = hexc("4DA3FF")},
+    {name = "มิ้นต์",   color = hexc("45DDA8")},
+    {name = "ส้ม",     color = hexc("FF7A45")},
+    {name = "ชมพู",    color = hexc("FF5C93")},
+    {name = "ทอง",    color = hexc("F2C14E")},
+    {name = "แดง",    color = hexc("FF4B4B")},
+    {name = "ขาวนวล", color = hexc("EDEBE4")},
+}
+local THEME_TOKENS = {"panel", "panelSoft", "card", "box", "off", "border", "muted", "white", "accent", "accentSoft"}
+
+local function buildTokens(scheme, accent)
+    local sc = SCHEMES[scheme] or SCHEMES.graphite
+    return {
+        panel      = sc.base,
+        panelSoft  = sc.base:Lerp(sc.ink, 0.05),
+        card       = sc.base:Lerp(sc.ink, 0.08),
+        box        = sc.base:Lerp(sc.ink, 0.035),
+        off        = sc.base:Lerp(sc.ink, 0.22),
+        border     = sc.base:Lerp(sc.ink, 0.40),
+        muted      = sc.sub,
+        white      = sc.ink,
+        accent     = accent,
+        accentSoft = accent:Lerp(sc.base, 0.55),
+    }
+end
+
+local THEME = buildTokens("graphite", ACCENTS[1].color)
+THEME.black = Color3.new(0, 0, 0)
+local themeState = {scheme = "graphite", accent = ACCENTS[1].color}
 
 -- ใส่รหัสรูปไอคอนของแต่ละแท็บที่นี่ (asset id ตัวเลข) เช่น ["ภาพ"] = 1234567890
 -- ถ้าเว้นว่าง แท็บจะใช้อีโมจิ/ตัวอักษรที่ระบุใน createTab แทน
@@ -173,7 +200,7 @@ end
 -- ROOT GUI
 ---------------------------------------------------------------------
 local gui = create("ScreenGui", {
-    Name = config.Name or "VOIDUI",
+    Name = config.Name or "ZeroHubUI",
     ResetOnSpawn = false,
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -593,7 +620,6 @@ local currentPage
 
 local ROW_H = 38
 local OPT_H = 28
-local BOX_COLOR = Color3.fromRGB(23, 24, 30)
 
 local function ensureGroup(self)
     if not self.group then self:AddSection("") end
@@ -625,6 +651,10 @@ local function newRow(self, height)
         ClipsDescendants = true,
     }, g.box)
     addDivider(row, g)
+    connect(row.MouseEnter, function()
+        tween(row, 0.12, {BackgroundColor3 = THEME.white, BackgroundTransparency = 0.965})
+    end)
+    connect(row.MouseLeave, function() tween(row, 0.18, {BackgroundTransparency = 1}) end)
     return row
 end
 
@@ -636,8 +666,11 @@ local function rowLabel(row, text, rightReserve)
     return t
 end
 
-function Page:_register(row, searchText)
-    table.insert(self.items, {card = row, group = self.group, text = string.lower(searchText or "")})
+function Page:_register(row, searchText, title)
+    table.insert(self.items, {
+        card = row, group = self.group, page = self,
+        text = string.lower(searchText or ""), title = title,
+    })
 end
 
 function Page:ApplyFilter(query)
@@ -669,12 +702,12 @@ function Page:AddSection(text)
     local box = create("Frame", {
         Size = UDim2.new(1, -6, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
-        BackgroundColor3 = BOX_COLOR,
+        BackgroundColor3 = THEME.box,
         BackgroundTransparency = 0.1,
         BorderSizePixel = 0,
         LayoutOrder = self.order,
     }, self.Scroll)
-    corner(box, 12)
+    corner(box, 16)
     stroke(box, THEME.border, 1, 0.8)
     create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder}, box)
     create("UIPadding", {PaddingBottom = UDim.new(0, 4)}, box)
@@ -686,9 +719,17 @@ function Page:AddSection(text)
             BackgroundTransparency = 1,
             LayoutOrder = 0,
         }, box)
-        local t = label(header, text, 14, THEME.white, Enum.Font.GothamMedium)
-        t.Position = UDim2.fromOffset(14, 2)
-        t.Size = UDim2.new(1, -28, 1, -2)
+        local mark = create("Frame", {
+            AnchorPoint = Vector2.new(0, 0.5),
+            Position = UDim2.new(0, 14, 0.5, 1),
+            Size = UDim2.fromOffset(4, 14),
+            BackgroundColor3 = THEME.accent,
+            BorderSizePixel = 0,
+        }, header)
+        corner(mark, 2)
+        local t = label(header, text, 15, THEME.white, Enum.Font.GothamMedium)
+        t.Position = UDim2.fromOffset(28, 2)
+        t.Size = UDim2.new(1, -42, 1, -2)
         t.TextTruncate = Enum.TextTruncate.AtEnd
     end
     table.insert(self.groups, g)
@@ -736,24 +777,27 @@ function Page:AddToggle(opts)
     local switch = create("Frame", {
         AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -14, 0, (hasDesc and 50 or ROW_H) / 2),
-        Size = UDim2.fromOffset(36, 20),
+        Size = UDim2.fromOffset(42, 24),
         BackgroundColor3 = THEME.off,
         BorderSizePixel = 0,
     }, row)
-    corner(switch, 10)
+    corner(switch, 12)
     local knob = create("Frame", {
-        Size = UDim2.fromOffset(14, 14),
+        Size = UDim2.fromOffset(18, 18),
         Position = UDim2.fromOffset(3, 3),
-        BackgroundColor3 = THEME.white,
+        BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0,
     }, switch)
-    corner(knob, 7)
+    corner(knob, 9)
 
-    local obj = {}
+    local obj = {kind = "toggle"}
+    local pressed = false
     local function render(animate)
         local dur = animate and 0.18 or 0
+        local w = pressed and 23 or 18
+        local x = state and (42 - 3 - w) or 3
         tween(switch, dur, {BackgroundColor3 = state and THEME.accent or THEME.off})
-        tween(knob, dur, {Position = state and UDim2.fromOffset(19, 3) or UDim2.fromOffset(3, 3)})
+        tween(knob, animate and 0.14 or 0, {Position = UDim2.fromOffset(x, 3), Size = UDim2.fromOffset(w, 18)})
     end
     function obj:Set(v, silent)
         state = v and true or false
@@ -765,10 +809,15 @@ function Page:AddToggle(opts)
     local hit = create("TextButton", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5,
     }, row)
+    connect(hit.MouseButton1Down, function() pressed = true; render(true) end)
+    connect(hit.MouseButton1Up, function() pressed = false; render(true) end)
+    connect(hit.MouseLeave, function()
+        if pressed then pressed = false; render(true) end
+    end)
     connect(hit.MouseButton1Click, function() obj:Set(not state) end)
 
     render(false)
-    self:_register(row, (opts.Text or "") .. " " .. (opts.Description or ""))
+    self:_register(row, (opts.Text or "") .. " " .. (opts.Description or ""), opts.Text)
     return obj
 end
 
@@ -814,12 +863,12 @@ function Page:AddSlider(opts)
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.fromScale(0, 0.5),
         Size = UDim2.fromOffset(14, 14),
-        BackgroundColor3 = THEME.white,
+        BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0,
     }, track)
     corner(knob, 7)
 
-    local obj = {}
+    local obj = {kind = "slider"}
     local function render(animate)
         local ratio = (max == min) and 0 or (value - min) / (max - min)
         local dur = animate and 0.08 or 0
@@ -873,7 +922,7 @@ function Page:AddSlider(opts)
     end)
 
     render(false)
-    self:_register(row, opts.Text)
+    self:_register(row, opts.Text, opts.Text)
     return obj
 end
 
@@ -899,14 +948,14 @@ function Page:AddButton(opts)
     local hit = create("TextButton", {
         Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5,
     }, row)
-    connect(hit.MouseButton1Down, function() tween(row, 0.08, {BackgroundTransparency = 0.6}) end)
+    connect(hit.MouseButton1Down, function() tween(row, 0.08, {BackgroundColor3 = THEME.accentSoft, BackgroundTransparency = 0.6}) end)
     connect(hit.MouseButton1Up, function() tween(row, 0.18, {BackgroundTransparency = 1}) end)
     connect(hit.MouseLeave, function() tween(row, 0.18, {BackgroundTransparency = 1}) end)
     connect(hit.MouseButton1Click, function()
         fire(opts.Callback)
         if opts.Notify ~= false then notify((opts.Text or "Button") .. " ✓") end
     end)
-    self:_register(row, (opts.Text or "") .. " " .. (opts.Description or ""))
+    self:_register(row, (opts.Text or "") .. " " .. (opts.Description or ""), opts.Text)
     return row
 end
 
@@ -952,7 +1001,7 @@ function Page:AddDropdown(opts)
     chevron.TextXAlignment = Enum.TextXAlignment.Center
 
     local optionButtons, indicators = {}, {}
-    local obj = {}
+    local obj = {kind = multi and "multi" or "dropdown"}
 
     local function isSelected(name)
         if multi then return chosen[name] == true end
@@ -1114,7 +1163,7 @@ function Page:AddDropdown(opts)
     connect(hit.MouseButton1Click, function() setOpen(not open) end)
 
     refreshOptions()
-    self:_register(row, (opts.Text or "") .. " " .. table.concat(options, " "))
+    self:_register(row, (opts.Text or "") .. " " .. table.concat(options, " "), opts.Text)
     return obj
 end
 
@@ -1181,7 +1230,7 @@ function Page:AddColorPicker(opts)
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.fromScale(0, 0.5),
             Size = UDim2.fromOffset(14, 14),
-            BackgroundColor3 = THEME.white,
+            BackgroundColor3 = Color3.new(1, 1, 1),
             BorderSizePixel = 0,
         }, track)
         corner(knob, 7)
@@ -1268,7 +1317,7 @@ function Page:AddColorPicker(opts)
         end)
     end
 
-    local obj = {}
+    local obj = {kind = "color"}
     function obj:Set(color, silent)
         h, sat, val = color:ToHSV()
         if silent then render() else commit() end
@@ -1285,7 +1334,7 @@ function Page:AddColorPicker(opts)
     end)
 
     render()
-    self:_register(row, opts.Text)
+    self:_register(row, opts.Text, opts.Text)
     return obj
 end
 
@@ -1323,7 +1372,7 @@ function Page:AddInput(opts)
         end)
     end
 
-    local obj = {}
+    local obj = {kind = "input"}
     local function commit(silent)
         local value = box.Text
         if numeric then
@@ -1347,7 +1396,7 @@ function Page:AddInput(opts)
     function obj:Set(v, silent) box.Text = tostring(v); commit(silent) end
     function obj:Get() return numeric and tonumber(box.Text) or box.Text end
 
-    self:_register(row, opts.Text)
+    self:_register(row, opts.Text, opts.Text)
     return obj
 end
 
@@ -1382,7 +1431,7 @@ function Page:AddKeybind(opts)
         end
     end
 
-    local obj = {}
+    local obj = {kind = "keybind"}
     function obj:Set(k, silent)
         key = k
         render()
@@ -1420,7 +1469,7 @@ function Page:AddKeybind(opts)
     end)
 
     render()
-    self:_register(row, opts.Text)
+    self:_register(row, opts.Text, opts.Text)
     return obj
 end
 
@@ -1454,7 +1503,7 @@ function Page:AddSegmented(opts)
         end
     end
 
-    local obj = {}
+    local obj = {kind = "segmented"}
     function obj:Set(v, silent)
         selected = v
         refresh()
@@ -1481,7 +1530,7 @@ function Page:AddSegmented(opts)
     end
 
     refresh()
-    self:_register(row, (opts.Text or "") .. " " .. table.concat(options, " "))
+    self:_register(row, (opts.Text or "") .. " " .. table.concat(options, " "), opts.Text)
     return obj
 end
 
@@ -1520,15 +1569,19 @@ function Page:AddProgress(opts)
     function obj:Get() return value end
 
     render(false)
-    self:_register(row, opts.Text)
+    self:_register(row, opts.Text, opts.Text)
     return obj
 end
 
 local Handlers, Controls = {}, {}
+local scheduleAutosave   -- กำหนดค่าด้านล่าง (ระบบบันทึกการตั้งค่า)
 local function cb(id)
     return function(...)
         local f = Handlers[id]
-        if f then return f(...) end
+        local r
+        if f then r = f(...) end
+        if scheduleAutosave then scheduleAutosave() end
+        return r
     end
 end
 
@@ -1722,6 +1775,348 @@ local function createTab(name, icon, hint)
 end
 
 ---------------------------------------------------------------------
+-- THEME (สลับโทนสี/สีหลักสด ๆ โดยเปลี่ยนสีที่ตรงกับโทเคนเดิมทั้งหมด)
+---------------------------------------------------------------------
+local themeSeg, accentDrop
+
+local function applyTheme(schemeName, accent)
+    schemeName = schemeName or themeState.scheme
+    accent = accent or themeState.accent
+    if not SCHEMES[schemeName] then return false end
+    local old = {}
+    for _, key in ipairs(THEME_TOKENS) do old[key] = THEME[key] end
+    local new = buildTokens(schemeName, accent)
+    for _, key in ipairs(THEME_TOKENS) do THEME[key] = new[key] end
+    themeState.scheme, themeState.accent = schemeName, accent
+
+    local PROPS = {"BackgroundColor3", "TextColor3", "ImageColor3", "ScrollBarImageColor3", "PlaceholderColor3", "Color"}
+    for _, inst in ipairs(gui:GetDescendants()) do
+        if inst:IsA("GuiObject") or inst:IsA("UIStroke") then
+            for _, prop in ipairs(PROPS) do
+                local ok, cur = pcall(function() return inst[prop] end)
+                if ok and typeof(cur) == "Color3" then
+                    for _, key in ipairs(THEME_TOKENS) do
+                        if cur == old[key] then
+                            pcall(function() inst[prop] = new[key] end)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return true
+end
+
+---------------------------------------------------------------------
+-- COMMAND PALETTE (ค้นหาด่วนข้ามทุกหน้า)
+---------------------------------------------------------------------
+local paletteOpen = false
+local palette = create("Frame", {
+    Name = "Palette",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = THEME.black,
+    BackgroundTransparency = 0.45,
+    BorderSizePixel = 0,
+    Visible = false,
+    Active = true,
+    ZIndex = 50,
+}, canvas)
+
+local pPanel = create("Frame", {
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.new(0, 400, 0, 340),
+    BackgroundColor3 = THEME.card,
+    BorderSizePixel = 0,
+}, palette)
+corner(pPanel, 16)
+stroke(pPanel, THEME.border, 1, 0.6)
+
+local pBox = create("TextBox", {
+    Position = UDim2.fromOffset(14, 14),
+    Size = UDim2.new(1, -28, 0, 38),
+    BackgroundColor3 = THEME.panelSoft,
+    BorderSizePixel = 0,
+    PlaceholderText = "ค้นหาตัวเลือกทั้งหมด...",
+    PlaceholderColor3 = THEME.muted,
+    Text = "",
+    TextColor3 = THEME.white,
+    TextSize = 14,
+    Font = Enum.Font.Gotham,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ClearTextOnFocus = false,
+}, pPanel)
+corner(pBox, 10)
+padding(pBox, 12, 0, 12, 0)
+
+local pList = create("ScrollingFrame", {
+    Position = UDim2.fromOffset(14, 62),
+    Size = UDim2.new(1, -28, 1, -76),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = THEME.accent,
+    CanvasSize = UDim2.new(),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, pPanel)
+create("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, pList)
+
+local resultRows = {}
+local firstResult
+
+local function closePalette()
+    paletteOpen = false
+    palette.Visible = false
+    pBox:ReleaseFocus()
+end
+
+local function jumpTo(item)
+    closePalette()
+    local page = item.page
+    showTab(page.Name)
+    task.delay(0.35, function()
+        local card, scroll = item.card, page.Scroll
+        if not card.Parent then return end
+        local scale = math.max(windowScale.Scale, 0.01)
+        local delta = (card.AbsolutePosition.Y - scroll.AbsolutePosition.Y) / scale
+        scroll.CanvasPosition = Vector2.new(0, math.max(scroll.CanvasPosition.Y + delta - 12, 0))
+        card.BackgroundColor3 = THEME.accent
+        card.BackgroundTransparency = 0.78
+        tween(card, 1, {BackgroundTransparency = 1})
+    end)
+end
+
+local function refreshResults()
+    for _, r in ipairs(resultRows) do r:Destroy() end
+    resultRows, firstResult = {}, nil
+    local q = string.lower(pBox.Text)
+    local shown = 0
+    for _, pname in ipairs(pageOrder) do
+        local page = pages[pname]
+        for _, item in ipairs(page.items) do
+            if shown >= 30 then break end
+            local hay = item.text .. " " .. string.lower(pname)
+            if q == "" or string.find(hay, q, 1, true) then
+                shown = shown + 1
+                if not firstResult then firstResult = item end
+                local b = create("TextButton", {
+                    Size = UDim2.new(1, -4, 0, 36),
+                    BackgroundColor3 = THEME.panelSoft,
+                    BackgroundTransparency = 0.4,
+                    BorderSizePixel = 0,
+                    Text = "",
+                    AutoButtonColor = false,
+                    LayoutOrder = shown,
+                }, pList)
+                corner(b, 10)
+                local t = label(b, item.title or string.sub(item.text, 1, 30), 13, THEME.white, Enum.Font.Gotham)
+                t.Position = UDim2.fromOffset(12, 0)
+                t.Size = UDim2.new(1, -112, 1, 0)
+                t.TextTruncate = Enum.TextTruncate.AtEnd
+                local tag = label(b, pname, 11, THEME.accent, Enum.Font.GothamMedium)
+                tag.AnchorPoint = Vector2.new(1, 0)
+                tag.Position = UDim2.new(1, -12, 0, 0)
+                tag.Size = UDim2.fromOffset(96, 36)
+                tag.TextXAlignment = Enum.TextXAlignment.Right
+                tag.TextTruncate = Enum.TextTruncate.AtEnd
+                connect(b.MouseEnter, function() tween(b, 0.1, {BackgroundTransparency = 0.1}) end)
+                connect(b.MouseLeave, function() tween(b, 0.15, {BackgroundTransparency = 0.4}) end)
+                connect(b.MouseButton1Click, function() jumpTo(item) end)
+                table.insert(resultRows, b)
+            end
+        end
+    end
+    if shown == 0 then
+        local e = label(pList, "ไม่พบผลลัพธ์", 12, THEME.muted)
+        e.Size = UDim2.new(1, 0, 0, 36)
+        e.TextXAlignment = Enum.TextXAlignment.Center
+        table.insert(resultRows, e)
+    end
+end
+
+local function openPalette()
+    paletteOpen = true
+    pBox.Text = ""
+    palette.Visible = true
+    refreshResults()
+    pBox:CaptureFocus()
+end
+
+connect(pBox:GetPropertyChangedSignal("Text"), function()
+    if paletteOpen then refreshResults() end
+end)
+connect(pBox.FocusLost, function(enterPressed)
+    if enterPressed and firstResult then jumpTo(firstResult) end
+end)
+connect(palette.InputBegan, function(input)
+    -- แตะที่พื้นหลังมืดเพื่อปิด
+    if (input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch) then
+        local pos = input.Position
+        local ap, as = pPanel.AbsolutePosition, pPanel.AbsoluteSize
+        if pos.X < ap.X or pos.X > ap.X + as.X or pos.Y < ap.Y or pos.Y > ap.Y + as.Y then
+            closePalette()
+        end
+    end
+end)
+
+local quickButton = create("TextButton", {
+    Name = "QuickSearch",
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.new(1, -60, 0.5, 0),
+    Size = UDim2.fromOffset(72, 34),
+    BackgroundColor3 = THEME.card,
+    BorderSizePixel = 0,
+    Text = "ค้นหา",
+    TextColor3 = THEME.white,
+    TextSize = 12,
+    Font = Enum.Font.GothamMedium,
+    AutoButtonColor = false,
+}, header)
+corner(quickButton, 12)
+connect(quickButton.MouseEnter, function() tween(quickButton, 0.15, {BackgroundColor3 = THEME.accentSoft}) end)
+connect(quickButton.MouseLeave, function() tween(quickButton, 0.15, {BackgroundColor3 = THEME.card}) end)
+connect(quickButton.MouseButton1Click, function()
+    if paletteOpen then closePalette() else openPalette() end
+end)
+
+connect(UserInputService.InputBegan, function(input, processed)
+    if input.KeyCode == Enum.KeyCode.Escape and paletteOpen then
+        closePalette()
+    elseif input.KeyCode == Enum.KeyCode.K and not processed
+        and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl)) then
+        if paletteOpen then closePalette() else openPalette() end
+    end
+end)
+
+---------------------------------------------------------------------
+-- CONFIG (บันทึก/โหลดการตั้งค่าเป็นไฟล์ JSON)
+---------------------------------------------------------------------
+local HttpService = game:GetService("HttpService")
+local CFG_ROOT = "ZeroHub"
+local CFG_DIR = CFG_ROOT .. "/" .. (config.Name or "UI")
+local canFS = type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
+    and type(makefolder) == "function" and type(isfolder) == "function"
+local autoSave = config.AutoSave ~= false
+local loadingConfig = false
+local autosaveToken = 0
+
+local function cfgName(name)
+    name = tostring(name or "")
+    name = string.gsub(name, '[\\/:*?"<>|%c]', "")
+    name = string.gsub(name, "^%s+", "")
+    name = string.gsub(name, "%s+$", "")
+    return name
+end
+local function cfgPath(name) return CFG_DIR .. "/" .. name .. ".json" end
+local function ensureDir()
+    if not canFS then return false end
+    pcall(function()
+        if not isfolder(CFG_ROOT) then makefolder(CFG_ROOT) end
+        if not isfolder(CFG_DIR) then makefolder(CFG_DIR) end
+    end)
+    return true
+end
+
+local function encodeValue(c)
+    local v = c:Get()
+    if c.kind == "color" then return {v.R, v.G, v.B} end
+    if c.kind == "keybind" then return v and v.Name or false end
+    return v
+end
+local function decodeValue(c, v)
+    if c.kind == "color" then
+        if type(v) == "table" then return Color3.new(v[1] or 0, v[2] or 0, v[3] or 0) end
+        return nil
+    end
+    if c.kind == "keybind" then
+        if type(v) == "string" then
+            local ok, key = pcall(function() return Enum.KeyCode[v] end)
+            return ok and key or nil
+        end
+        return nil
+    end
+    return v
+end
+
+local Window = {}
+
+function Window:SaveConfig(name)
+    name = cfgName(name)
+    if name == "" or not ensureDir() then return false end
+    local data = {
+        version = 1,
+        theme = {scheme = themeState.scheme, accent = {themeState.accent.R, themeState.accent.G, themeState.accent.B}},
+        values = {},
+    }
+    for id, c in pairs(Controls) do
+        if c.kind and c.Get then
+            local ok, v = pcall(encodeValue, c)
+            if ok then data.values[id] = v end
+        end
+    end
+    local ok = pcall(function() writefile(cfgPath(name), HttpService:JSONEncode(data)) end)
+    return ok
+end
+
+function Window:LoadConfig(name, silent)
+    name = cfgName(name)
+    if name == "" or not canFS then return false end
+    local okExists, exists = pcall(isfile, cfgPath(name))
+    if not (okExists and exists) then return false end
+    local ok, data = pcall(function() return HttpService:JSONDecode(readfile(cfgPath(name))) end)
+    if not ok or type(data) ~= "table" then return false end
+    loadingConfig = true
+    if type(data.theme) == "table" and SCHEMES[data.theme.scheme] then
+        local a = data.theme.accent
+        local accent = type(a) == "table" and Color3.new(a[1] or 0, a[2] or 0, a[3] or 0) or themeState.accent
+        applyTheme(data.theme.scheme, accent)
+        if themeSeg then themeSeg:Set(data.theme.scheme, true) end
+    end
+    for id, v in pairs(data.values or {}) do
+        local c = Controls[id]
+        if c and c.Set then
+            pcall(function() c:Set(decodeValue(c, v), silent) end)
+        end
+    end
+    loadingConfig = false
+    return true
+end
+
+function Window:ListConfigs()
+    if not canFS or type(listfiles) ~= "function" then return {} end
+    ensureDir()
+    local out = {}
+    local ok, files = pcall(listfiles, CFG_DIR)
+    if ok and type(files) == "table" then
+        for _, f in ipairs(files) do
+            local base = string.match(string.gsub(tostring(f), "\\", "/"), "([^/]+)%.json$")
+            if base then table.insert(out, base) end
+        end
+    end
+    table.sort(out)
+    return out
+end
+
+function Window:DeleteConfig(name)
+    name = cfgName(name)
+    if name == "" or not canFS or type(delfile) ~= "function" then return false end
+    return (pcall(delfile, cfgPath(name)))
+end
+
+function Window:SetAutoSave(v) autoSave = v and true or false end
+
+scheduleAutosave = function()
+    if not autoSave or loadingConfig or not canFS then return end
+    autosaveToken = autosaveToken + 1
+    local token = autosaveToken
+    task.delay(1.5, function()
+        if token == autosaveToken then Window:SaveConfig("auto") end
+    end)
+end
+
+---------------------------------------------------------------------
 -- SHOW / HIDE
 ---------------------------------------------------------------------
 local function finishHide()
@@ -1809,15 +2204,14 @@ _G[UNLOAD_KEY] = function()
 end
 
 
-local Window = {
-    Pages = pages,
-    Handlers = Handlers,
-    Controls = Controls,
-    Notify = notify,
-    Show = function() setVisible(true) end,
-    Hide = function() setVisible(false) end,
-    Unload = _G[UNLOAD_KEY],
-}
+Window.Pages = pages
+Window.Handlers = Handlers
+Window.Controls = Controls
+Window.Notify = notify
+Window.Show = function() setVisible(true) end
+Window.Hide = function() setVisible(false) end
+Window.Unload = _G[UNLOAD_KEY]
+Window.Themes = {"graphite", "midnight", "porcelain"}
 
 function Window:AddTab(name, icon, hint)
     return createTab(name, icon, hint)
@@ -1829,6 +2223,21 @@ end
 
 -- ตัวเลือกตั้งค่า UI สำเร็จรูป (แอนิเมชัน ปุ่มลอย พื้นหลัง สี ปุ่มลัด ฯลฯ)
 function Window:BuildSettings(ui)
+ui:AddSection("ธีม")
+themeSeg = ui:AddSegmented({
+    Text = "โทนสี", Options = {"graphite", "midnight", "porcelain"}, Default = "graphite",
+    Callback = function(v) applyTheme(v) end,
+})
+local accentNames = {}
+for _, a in ipairs(ACCENTS) do table.insert(accentNames, a.name) end
+accentDrop = ui:AddDropdown({
+    Text = "สีหลัก", Options = accentNames, Default = accentNames[1],
+    Callback = function(name)
+        for _, a in ipairs(ACCENTS) do
+            if a.name == name then applyTheme(nil, a.color) end
+        end
+    end,
+})
 ui:AddSection("ตั้งค่า UI (ใหม่)")
 ui:AddToggle({
     Text = "แอนิเมชันเปิด/ปิดเมนู", Description = "เปิดไว้เพื่อความลื่นไหล", Default = true,
@@ -1903,6 +2312,54 @@ ui:AddButton({
     Text = "ปิดสคริปต์ UI", Description = "ลบ UI ทั้งหมดออก", Notify = false,
     Callback = function() if _G[UNLOAD_KEY] then _G[UNLOAD_KEY]() end end,
 })
+end
+
+function Window:SetTheme(scheme, accent)
+    local ok = applyTheme(scheme, accent)
+    if ok and themeSeg then themeSeg:Set(themeState.scheme, true) end
+    return ok
+end
+
+-- เรียกหลังผูก Handlers เสร็จ: โหลดค่าที่บันทึกอัตโนมัติครั้งล่าสุด
+function Window:Ready()
+    if config.AutoLoad ~= false then Window:LoadConfig("auto") end
+end
+
+-- ส่วนบันทึก/โหลดการตั้งค่า (โปรไฟล์)
+function Window:BuildConfigSection(ui)
+    ui:AddSection("การตั้งค่าที่บันทึก")
+    if not canFS then
+        ui:AddInfo("executor นี้ไม่รองรับการเขียนไฟล์ (writefile/readfile) จึงบันทึกการตั้งค่าไม่ได้")
+        return
+    end
+    local nameInput = ui:AddInput({Text = "ชื่อโปรไฟล์", Placeholder = "ตั้งชื่อ"})
+    local list = ui:AddDropdown({Text = "โปรไฟล์ที่มี", Options = Window:ListConfigs()})
+    local function refresh(select)
+        list:SetOptions(Window:ListConfigs())
+        if select then list:Set(select, true) end
+    end
+    local function currentName()
+        local n = cfgName(nameInput:Get())
+        if n == "" then n = cfgName(list:Get()) end
+        return n
+    end
+    ui:AddButton({Text = "บันทึก", Notify = false, Callback = function()
+        local n = currentName()
+        if n == "" then notify("ใส่ชื่อโปรไฟล์ก่อน") return end
+        if Window:SaveConfig(n) then notify("บันทึก \"" .. n .. "\" แล้ว"); refresh(n) else notify("บันทึกไม่สำเร็จ") end
+    end})
+    ui:AddButton({Text = "โหลด", Notify = false, Callback = function()
+        local n = currentName()
+        if n ~= "" and Window:LoadConfig(n) then notify("โหลด \"" .. n .. "\" แล้ว") else notify("ไม่พบโปรไฟล์") end
+    end})
+    ui:AddButton({Text = "ลบ", Notify = false, Callback = function()
+        local n = currentName()
+        if n ~= "" and Window:DeleteConfig(n) then notify("ลบ \"" .. n .. "\" แล้ว"); refresh() else notify("ลบไม่สำเร็จ") end
+    end})
+    ui:AddToggle({
+        Text = "บันทึกอัตโนมัติ", Description = "บันทึกค่าทุกครั้งที่เปลี่ยน และโหลดให้ตอนเปิดสคริปต์",
+        Default = autoSave, Callback = function(v) autoSave = v end,
+    })
 end
 
 return Window
