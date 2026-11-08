@@ -4,18 +4,12 @@ function Library.new(config)
 config = config or {}
 local UNLOAD_KEY = (config.Name or "ZeroHubUI") .. "_Unload"
 
--- ZeroHub UI Library — ไลบรารี UI สำหรับ loadstring
--- ใช้: local Lib = loadstring(game:HttpGet(URL))(); local UI = Lib.new({Title = "..."})
--- ปรับปรุง: ระบบคอมโพเนนต์ (Toggle/Slider/Dropdown/Button), ค้นหา, แจ้งเตือน, แคชหน้า,
---          ลากแยกจากคลิก, ล้าง connection ตอนปิด, ปรับขนาดตามหน้าจอ
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
--- ล้างของเดิมถ้ารันซ้ำ
 if _G[UNLOAD_KEY] then
     pcall(_G[UNLOAD_KEY])
 end
@@ -28,12 +22,8 @@ local function getParent()
     return p
 end
 
----------------------------------------------------------------------
--- THEME / HELPERS
----------------------------------------------------------------------
 local function hexc(h) return Color3.fromHex(h) end
 
--- โทนสีสำเร็จรูป (ได้แรงบันดาลใจจาก BASED Hub) + สีหลัก 8 แบบ
 local SCHEMES = {
     graphite  = {base = hexc("0B0B0F"), ink = hexc("F5F4EF"), sub = hexc("A9A8B4")},
     midnight  = {base = hexc("000000"), ink = hexc("F5F4EF"), sub = hexc("9E9DA9")},
@@ -71,8 +61,6 @@ local THEME = buildTokens("graphite", ACCENTS[1].color)
 THEME.black = Color3.new(0, 0, 0)
 local themeState = {scheme = "graphite", accent = ACCENTS[1].color}
 
--- ใส่รหัสรูปไอคอนของแต่ละแท็บที่นี่ (asset id ตัวเลข) เช่น ["ภาพ"] = 1234567890
--- ถ้าเว้นว่าง แท็บจะใช้อีโมจิ/ตัวอักษรที่ระบุใน createTab แทน
 local TAB_ICON_IMAGES = config.TabIcons or {}
 
 local connections = {}
@@ -138,7 +126,6 @@ local function fire(callback, ...)
     end)
 end
 
--- คำนวณตำแหน่งที่ถูกจำกัดให้อยู่ในจอ (คิดจาก Size/AnchorPoint/UIScale โดยตรง)
 local function clampedPosition(target, pos)
     local g = target:FindFirstAncestorOfClass("ScreenGui")
     if not g then return pos end
@@ -163,7 +150,6 @@ local function reclamp(target)
     target.Position = clampedPosition(target, target.Position)
 end
 
--- ลากได้ + แยก "ลาก" ออกจาก "คลิก" (ขยับเกิน 6px ถือว่าลาก)
 local function makeDraggable(handle, target)
     local dragging, moved = false, false
     local dragStart, startPos
@@ -196,9 +182,6 @@ local function makeDraggable(handle, target)
     return function() return moved end
 end
 
----------------------------------------------------------------------
--- ROOT GUI
----------------------------------------------------------------------
 local gui = create("ScreenGui", {
     Name = config.Name or "ZeroHubUI",
     ResetOnSpawn = false,
@@ -212,12 +195,9 @@ local visible = true
 local visibleToken = 0
 local normalScale = 1
 local userScale = 1
-local menuKey = config.MenuKey or Enum.KeyCode.RightShift   -- ปุ่มลัดเปิด/ปิดเมนู (เปลี่ยนได้จากแท็บ "อื่น ๆ")
-local keybindListening = false           -- กำลังรอรับปุ่มใหม่อยู่หรือไม่
+local menuKey = config.MenuKey or Enum.KeyCode.RightShift
+local keybindListening = false
 
----------------------------------------------------------------------
--- TOGGLE BUTTON (ปุ่มลอย)
----------------------------------------------------------------------
 local toggleHolder = create("Frame", {
     Name = "ToggleHolder",
     Size = UDim2.fromOffset(58, 58),
@@ -255,9 +235,6 @@ connect(toggleButton.MouseLeave, function()
     tween(toggleStroke, 0.15, {Color = THEME.white})
 end)
 
----------------------------------------------------------------------
--- WINDOW
----------------------------------------------------------------------
 local window = create("Frame", {
     Name = "MainWindow",
     AnchorPoint = Vector2.new(0.5, 0.5),
@@ -269,7 +246,6 @@ local window = create("Frame", {
 corner(window, 28)
 local windowStroke = stroke(window, THEME.border, 1.2, 0.25)
 
--- CanvasGroup: ทุกอย่างในหน้าต่างจางหาย/โผล่พร้อมกัน (พื้นหลังอยู่ในนี้ด้วย)
 local canvas = create("CanvasGroup", {
     Name = "WindowCanvas",
     Size = UDim2.fromScale(1, 1),
@@ -293,9 +269,6 @@ end
 fitWindow()
 connect(gui:GetPropertyChangedSignal("AbsoluteSize"), fitWindow)
 
--- BACKGROUND FX (ลูกแสงเคลื่อนช้า ๆ) -------------------------------
--- เบา: ใช้ Tween วนซ้ำแค่ 3 ก้อน ไม่มี Heartbeat/ลูปคำนวณเอง
--- หยุดทำงานอัตโนมัติตอนซ่อนเมนู และปิดได้จากแท็บ "อื่น ๆ"
 local bgEnabled = true
 local bgLayer = create("Frame", {
     Name = "BackgroundFX",
@@ -322,7 +295,6 @@ for i, o in ipairs(ORBS) do
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
     }, bgLayer)
-    -- ซ้อนวงกลม 3 ชั้นให้ขอบดูฟุ้ง (ไม่ต้องใช้รูปภาพ)
     for _, layer in ipairs({{1, 0.95}, {0.68, 0.92}, {0.4, 0.88}}) do
         local c = create("Frame", {
             AnchorPoint = Vector2.new(0.5, 0.5),
@@ -365,7 +337,6 @@ local function refreshBackground()
     end
 end
 
--- HEADER ------------------------------------------------------------
 local header = create("Frame", {
     Name = "Header",
     Size = UDim2.new(1, 0, 0, 64),
@@ -374,7 +345,7 @@ local header = create("Frame", {
     BorderSizePixel = 0,
 }, canvas)
 
-create("Frame", { -- เส้นคั่นใต้ header
+create("Frame", {
     Size = UDim2.new(1, 0, 0, 1),
     Position = UDim2.new(0, 0, 1, -1),
     BackgroundColor3 = THEME.border,
@@ -385,7 +356,7 @@ create("Frame", { -- เส้นคั่นใต้ header
 local logoDot = create("Frame", {
     Size = UDim2.fromOffset(10, 10),
     Position = UDim2.fromOffset(24, 27),
-    BackgroundColor3 = Color3.fromRGB(90, 210, 140), -- ค่า เดิม THEME.accent
+    BackgroundColor3 = Color3.fromRGB(90, 210, 140),
     BorderSizePixel = 0,
 }, header)
 corner(logoDot, 5)
@@ -418,7 +389,6 @@ connect(closeButton.MouseLeave, function()
     tween(closeButton, 0.15, {BackgroundColor3 = THEME.card})
 end)
 
--- SIDEBAR -----------------------------------------------------------
 local sidebar = create("Frame", {
     Name = "Sidebar",
     Position = UDim2.fromOffset(0, 64),
@@ -444,7 +414,6 @@ create("UIListLayout", {
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, tabList)
 
--- โปรไฟล์ผู้เล่นด้านล่าง sidebar
 local profile = create("Frame", {
     Name = "Profile",
     AnchorPoint = Vector2.new(0, 1),
@@ -482,7 +451,6 @@ task.spawn(function()
     end)
 end)
 
--- CONTENT -----------------------------------------------------------
 local content = create("Frame", {
     Name = "Content",
     Position = UDim2.fromOffset(164, 64),
@@ -523,9 +491,6 @@ local searchStroke = stroke(searchBox, THEME.border, 1, 0.75)
 connect(searchBox.Focused, function() tween(searchStroke, 0.15, {Color = THEME.accent, Transparency = 0.2}) end)
 connect(searchBox.FocusLost, function() tween(searchStroke, 0.15, {Color = THEME.border, Transparency = 0.75}) end)
 
----------------------------------------------------------------------
--- TOAST (การแจ้งเตือน)
----------------------------------------------------------------------
 local toastHolder = create("Frame", {
     Name = "Toasts",
     AnchorPoint = Vector2.new(0.5, 1),
@@ -550,7 +515,6 @@ local function removeToast(entry)
     end
     local toast = entry.toast
     if not toast.Parent then return end
-    -- จางหายเร็ว ๆ แล้วหดความสูงให้ toast อื่นเลื่อนลงนุ่ม ๆ ไม่กระชาก
     tween(toast, 0.14, {BackgroundTransparency = 1}, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
     tween(entry.stroke, 0.14, {Transparency = 1})
     tween(entry.bar, 0.14, {BackgroundTransparency = 1})
@@ -560,7 +524,6 @@ local function removeToast(entry)
 end
 
 local function notify(text, duration)
-    -- ถ้ามีข้อความเดิมอยู่แล้ว ให้รีเซ็ตเวลาแทนการซ้อนเพิ่ม (กดรัว ๆ ไม่สะสม)
     for _, e in ipairs(activeToasts) do
         if e.message == text then
             e.token = e.token + 1
@@ -571,12 +534,10 @@ local function notify(text, duration)
             return
         end
     end
-    -- จำกัดสูงสุด 3 อัน
     while #activeToasts >= 3 do
         removeToast(activeToasts[1])
     end
 
-    -- ใช้ Frame ธรรมดา (เบากว่า CanvasGroup บนมือถือ)
     local toast = create("Frame", {
         Size = UDim2.fromOffset(280, 40),
         BackgroundColor3 = THEME.panel,
@@ -609,9 +570,6 @@ local function notify(text, duration)
     end)
 end
 
----------------------------------------------------------------------
--- PAGE / COMPONENTS
----------------------------------------------------------------------
 local Page = {}
 Page.__index = Page
 
@@ -638,7 +596,6 @@ local function addDivider(row, g)
     end
 end
 
--- แถวแบบกะทัดรัดอยู่ในกล่อง (groupbox) ปัจจุบันของหน้า
 local function newRow(self, height)
     local g = ensureGroup(self)
     g.order = g.order + 1
@@ -695,7 +652,6 @@ function Page:ApplyFilter(query)
     self.Empty.Visible = (shown == 0)
 end
 
--- เริ่มกล่องใหม่ (หัวข้อ + แถวตัวเลือกด้านใน) — ตัวเลือกที่เพิ่มต่อจากนี้จะอยู่ในกล่องนี้
 function Page:AddSection(text)
     text = text or ""
     self.order = self.order + 1
@@ -1050,7 +1006,6 @@ function Page:AddDropdown(opts)
         return selected
     end
 
-    -- ปรับความสูงทันที (ไม่ tween) กันการ์ดข้างล่างตามไม่ทันแล้วซ้อนทับ
     local openToken = 0
     local function expandedHeight() return HEAD + #options * OPT_H + 6 end
     local function setOpen(state)
@@ -1574,7 +1529,7 @@ function Page:AddProgress(opts)
 end
 
 local Handlers, Controls = {}, {}
-local scheduleAutosave   -- กำหนดค่าด้านล่าง (ระบบบันทึกการตั้งค่า)
+local scheduleAutosave
 local function cb(id)
     return function(...)
         local f = Handlers[id]
@@ -1585,7 +1540,6 @@ local function cb(id)
     end
 end
 
--- ทางลัดแบบมี id: ผูกระบบผ่าน UI.Handlers[id] และควบคุมผ่าน UI.Controls[id]
 function Page:Check(id, text, default, desc)
     local c = self:AddToggle({Text = text, Description = desc, Default = default or false, Callback = cb(id)})
     Controls[id] = c
@@ -1661,9 +1615,6 @@ local function createPage(name, hint)
     return page
 end
 
----------------------------------------------------------------------
--- TABS
----------------------------------------------------------------------
 local tabButtons = {}
 
 local function showTab(name)
@@ -1672,7 +1623,6 @@ local function showTab(name)
     local old = currentPage
     currentPage = page
 
-    -- sidebar state
     for tabName, t in pairs(tabButtons) do
         local sel = tabName == name
         tween(t.button, 0.2, {BackgroundTransparency = sel and 0.15 or 1})
@@ -1685,20 +1635,17 @@ local function showTab(name)
         tween(t.bar, 0.25, {Size = UDim2.fromOffset(3, sel and 18 or 0)})
     end
 
-    -- heading
     contentTitle.Text = name
     contentHint.Text = page.Hint or ""
     contentTitle.TextTransparency, contentHint.TextTransparency = 1, 1
     tween(contentTitle, 0.3, {TextTransparency = 0})
     tween(contentHint, 0.3, {TextTransparency = 0})
 
-    -- old page out
     if old then
         old.Holder.Visible = false
         old.Holder.GroupTransparency = 1
     end
 
-    -- new page in
     searchBox.Text = ""
     page:ApplyFilter("")
     page.Holder.Position = UDim2.new(0, 14, 0, 80)
@@ -1736,7 +1683,6 @@ local function createTab(name, icon, hint)
     }, button)
     corner(bar, 2)
 
-    -- ไอคอนแท็บ: ถ้าเป็นรหัสรูป (ตัวเลข หรือ "rbxassetid://...") ใช้ ImageLabel ไม่งั้นใช้ข้อความ/อีโมจิ
     local iconSource = TAB_ICON_IMAGES[name] or icon
     local asImage = type(iconSource) == "number"
         or (type(iconSource) == "string" and string.sub(iconSource, 1, 13) == "rbxassetid://")
@@ -1774,9 +1720,6 @@ local function createTab(name, icon, hint)
     return page
 end
 
----------------------------------------------------------------------
--- THEME (สลับโทนสี/สีหลักสด ๆ โดยเปลี่ยนสีที่ตรงกับโทเคนเดิมทั้งหมด)
----------------------------------------------------------------------
 local themeSeg, accentDrop
 
 local function applyTheme(schemeName, accent)
@@ -1808,9 +1751,6 @@ local function applyTheme(schemeName, accent)
     return true
 end
 
----------------------------------------------------------------------
--- COMMAND PALETTE (ค้นหาด่วนข้ามทุกหน้า)
----------------------------------------------------------------------
 local paletteOpen = false
 local palette = create("Frame", {
     Name = "Palette",
@@ -1950,7 +1890,6 @@ connect(pBox.FocusLost, function(enterPressed)
     if enterPressed and firstResult then jumpTo(firstResult) end
 end)
 connect(palette.InputBegan, function(input)
-    -- แตะที่พื้นหลังมืดเพื่อปิด
     if (input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch) then
         local pos = input.Position
@@ -1990,9 +1929,6 @@ connect(UserInputService.InputBegan, function(input, processed)
     end
 end)
 
----------------------------------------------------------------------
--- CONFIG (บันทึก/โหลดการตั้งค่าเป็นไฟล์ JSON)
----------------------------------------------------------------------
 local HttpService = game:GetService("HttpService")
 local CFG_ROOT = "ZeroHub"
 local CFG_DIR = CFG_ROOT .. "/" .. (config.Name or "UI")
@@ -2116,9 +2052,6 @@ scheduleAutosave = function()
     end)
 end
 
----------------------------------------------------------------------
--- SHOW / HIDE
----------------------------------------------------------------------
 local function finishHide()
     window.Visible = false
     window.Rotation = 0
@@ -2167,7 +2100,7 @@ end
 
 local toggleWasDragged = makeDraggable(toggleButton, toggleHolder)
 connect(toggleButton.MouseButton1Click, function()
-    if toggleWasDragged() then return end -- ลากอยู่ ไม่ใช่คลิก
+    if toggleWasDragged() then return end
     tween(toggleButton, 0.08, {Size = UDim2.fromOffset(42, 42), Position = UDim2.fromOffset(8, 8)})
     task.delay(0.08, function()
         tween(toggleButton, 0.1, {Size = UDim2.fromOffset(48, 48), Position = UDim2.fromOffset(5, 5)})
@@ -2184,11 +2117,7 @@ connect(UserInputService.InputBegan, function(input, processed)
     end
 end)
 
----------------------------------------------------------------------
--- START / UNLOAD
----------------------------------------------------------------------
 window.Visible = false
--- รอให้สคริปต์หลักสร้างแท็บเสร็จก่อน แล้วค่อยเปิดแท็บแรกและแสดงหน้าต่าง
 task.defer(function()
     if pageOrder[1] then showTab(pageOrder[1]) end
     setVisible(true)
@@ -2202,7 +2131,6 @@ _G[UNLOAD_KEY] = function()
     if gui then gui:Destroy() end
     _G[UNLOAD_KEY] = nil
 end
-
 
 Window.Pages = pages
 Window.Handlers = Handlers
@@ -2221,7 +2149,6 @@ function Window:Select(name)
     showTab(name)
 end
 
--- ตัวเลือกตั้งค่า UI สำเร็จรูป (แอนิเมชัน ปุ่มลอย พื้นหลัง สี ปุ่มลัด ฯลฯ)
 function Window:BuildSettings(ui)
 ui:AddSection("ธีม")
 themeSeg = ui:AddSegmented({
@@ -2298,7 +2225,6 @@ ui:AddInput({
 })
 end
 
--- ส่วน "เมนู" (รีเซ็ตตำแหน่ง / ปิดสคริปต์ UI)
 function Window:BuildMenuSection(ui)
 ui:AddSection("เมนู")
 ui:AddButton({
@@ -2320,12 +2246,10 @@ function Window:SetTheme(scheme, accent)
     return ok
 end
 
--- เรียกหลังผูก Handlers เสร็จ: โหลดค่าที่บันทึกอัตโนมัติครั้งล่าสุด
 function Window:Ready()
     if config.AutoLoad ~= false then Window:LoadConfig("auto") end
 end
 
--- ส่วนบันทึก/โหลดการตั้งค่า (โปรไฟล์)
 function Window:BuildConfigSection(ui)
     ui:AddSection("การตั้งค่าที่บันทึก")
     if not canFS then
