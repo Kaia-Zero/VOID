@@ -243,7 +243,7 @@ create("ImageLabel", {
     BackgroundTransparency = 1,
     Size = UDim2.fromScale(0.68, 0.68),
     Position = UDim2.fromScale(0.16, 0.16),
-    Image = "rbxassetid://97488788643138" .. tostring(config.ToggleIcon or 101603563351741),
+    Image = "rbxassetid://" .. tostring(config.ToggleIcon or 101603563351741),
     ImageColor3 = THEME.white,
     ScaleType = Enum.ScaleType.Fit,
 }, toggleButton)
