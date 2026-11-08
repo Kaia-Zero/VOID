@@ -12,7 +12,7 @@
 --
 -- บังคับอัปเดตทุกครั้ง: ใส่ getgenv().ZeroHubForceUpdate = true ก่อนรัน
 
-local BASE     = "https://raw.githubusercontent.com/Kaia-Zero/VOID/refs/heads/main/"  -- <<< แก้ลิงก์ของคุณ (ต้องลงท้ายด้วย /)
+local BASE = "https://raw.githubusercontent.com/Kaia-Zero/VOID/main/GUI/"-- <<< แก้ลิงก์ของคุณ (ต้องลงท้ายด้วย /)
 local MANIFEST = "version.json"
 local LIB_FILE = "ZeroHubUI_Lib.lua"        -- ชื่อไฟล์ไลบรารีเริ่มต้น (version.json เปลี่ยนได้ด้วย "lib")
 local ROOT     = "ZeroHub"

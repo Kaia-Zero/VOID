@@ -4,7 +4,7 @@
 -- 2) แก้ BASE ใน ZeroHub_Loader.lua และ LOADER_URL ด้านล่างให้เป็นลิงก์ของคุณ
 -- 3) ทุกครั้งที่แก้ไลบรารี ให้เพิ่มเลข "version" ใน version.json เพื่อให้เครื่องอื่นอัปเดตตาม
 
-local LOADER_URL = "https://raw.githubusercontent.com/Kaia-Zero/VOID/refs/heads/main/VoidLib.lua"
+local LOADER_URL = "https://raw.githubusercontent.com/Kaia-Zero/VOID/main/GUI/ZeroHub_Loader.lua"
 
 local Lib, Loader = loadstring(game:HttpGet(LOADER_URL))()
 -- ทดสอบจากไฟล์ในเครื่อง: local Lib, Loader = loadstring(readfile("ZeroHub_Loader.lua"))()
@@ -12,7 +12,7 @@ local Lib, Loader = loadstring(game:HttpGet(LOADER_URL))()
 local UI = Lib.new({
     Name       = "ZeroHubUI",
     Title      = "Zero HUB",
-    Subtitle   = "Violence District  •  Mobile Ready  •  v3.1.0",
+    Subtitle   = "Violence District  •  Mobile Ready  •  v3.3.0",
     ToggleIcon = 101603563351741,            -- รูปปุ่มลอย (asset id)
     MenuKey    = Enum.KeyCode.RightShift,    -- ปุ่มลัดเปิด/ปิดเมนู
     TabIcons   = {},                         -- รูปไอคอนแท็บ เช่น ["ภาพ"] = 1234567890
